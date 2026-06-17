@@ -6,8 +6,8 @@ import {defineConfig} from 'vite';
 export default defineConfig(() => {
   return {
     plugins: [react(), tailwindcss()],
-    // Serve the project root as the static dir so /model/* is accessible at runtime
-    publicDir: path.resolve(__dirname, '.'),
+    // Serve the public folder as the static dir so /model/* is accessible at runtime
+    publicDir: 'public',
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
