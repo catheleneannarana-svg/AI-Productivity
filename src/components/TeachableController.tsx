@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Camera, RefreshCw, AlertTriangle, CheckCircle2, Cpu, Eye, HelpCircle, Gamepad2 } from 'lucide-react';
+import { Camera, RefreshCw, AlertTriangle, CheckCircle2, Cpu, Eye, Gamepad2, Zap } from 'lucide-react';
 import { TeachableModelConfig, GameAction, GameSettings } from '../types';
 import { playSuccessSound } from '../audio';
 
@@ -9,6 +9,9 @@ interface TeachableControllerProps {
   onAction: (action: GameAction) => void;
   settings: GameSettings;
 }
+
+// Path to the bundled local Teachable Machine model (served from /model/ by Vite)
+const LOCAL_MODEL_URL = '/model/';
 
 // Dynamically load external scripts
 function loadScript(src: string): Promise<void> {
@@ -157,8 +160,11 @@ export default function TeachableController({
   };
 
   // Download and Load the model JSON & Metadata
-  const connectModel = async () => {
-    const formattedUrl = formatModelUrl(modelConfig.modelUrl);
+  // urlOverride / typeOverride: used by quick-connect buttons to bypass pending state
+  const connectModel = async (urlOverride?: string, typeOverride?: 'image' | 'pose') => {
+    const resolvedType = typeOverride ?? modelConfig.modelType;
+    const rawUrl = urlOverride ?? modelConfig.modelUrl;
+    const formattedUrl = formatModelUrl(rawUrl);
     if (!formattedUrl) {
       setLoadingError('Please enter a valid Teachable Machine share link.');
       return;
@@ -170,7 +176,7 @@ export default function TeachableController({
     setPredictions({});
 
     // Ensure TF & TM scripts are loaded
-    const loaded = await initLibraries(modelConfig.modelType);
+    const loaded = await initLibraries(resolvedType);
     if (!loaded) {
       setModelLoading(false);
       return;
@@ -194,7 +200,7 @@ export default function TeachableController({
       const metadataJsonUrl = `${formattedUrl}metadata.json`;
       
       let loadedModel: any = null;
-      if (modelConfig.modelType === 'image') {
+      if (resolvedType === 'image') {
         const tmImage = (window as any).tmImage;
         loadedModel = await tmImage.load(modelJsonUrl, metadataJsonUrl);
       } else {
@@ -206,11 +212,16 @@ export default function TeachableController({
 
       // Automatically construct or pair action maps based on label names (case insensitive)
       const newMappings: Record<string, GameAction> = {};
-      const lowerLabels = labels.map(l => l.toLowerCase().trim());
 
       labels.forEach((label) => {
         const val = label.toLowerCase().trim();
-        if (val.includes('jump') || val.includes('up') || val.includes('high') || val.includes('leap')) {
+        // Emotion-based labels (from bundled model: happy, sad, shock, angry)
+        if (val.includes('happy') || val.includes('smile') || val.includes('joy')) {
+          newMappings[label] = 'JUMP';
+        } else if (val.includes('sad') || val.includes('angry') || val.includes('frown') || val.includes('upset')) {
+          newMappings[label] = 'DUCK';
+        // Generic gesture-based labels
+        } else if (val.includes('jump') || val.includes('up') || val.includes('high') || val.includes('leap')) {
           newMappings[label] = 'JUMP';
         } else if (val.includes('duck') || val.includes('down') || val.includes('slide') || val.includes('crouch')) {
           newMappings[label] = 'DUCK';
@@ -239,6 +250,7 @@ export default function TeachableController({
       onChangeConfig({
         ...modelConfig,
         modelUrl: formattedUrl,
+        modelType: resolvedType,
         classes: labels,
         mappings: newMappings
       });
@@ -371,6 +383,18 @@ export default function TeachableController({
           <label className="block text-[10px] font-bold uppercase text-emerald-600 tracking-wider">
             TEACHABLE_MACHINE_WEB_KEY
           </label>
+
+          {/* Quick-connect local model button */}
+          <button
+            type="button"
+            onClick={() => connectModel(LOCAL_MODEL_URL, 'image')}
+            disabled={modelLoading}
+            className="w-full flex items-center justify-center gap-2 border border-emerald-500/40 bg-emerald-950/60 hover:bg-emerald-900/60 text-emerald-300 rounded-xl px-3 py-2.5 text-[10px] font-black uppercase tracking-widest transition-all shadow-[0_0_16px_rgba(16,185,129,0.12)] disabled:opacity-40"
+          >
+            <Zap className="h-3.5 w-3.5 text-emerald-400" />
+            ⚡ USE LOCAL MODEL — Happy=JUMP · Sad=DUCK
+          </button>
+
           <div className="flex flex-col gap-2">
             <input
               type="text"
