@@ -1,0 +1,6 @@
+{
+  "name": "8-Bit Teachable Platformer",
+  "description": "An 8-bit retro platformer controlled via keyboard or a custom Teachable Machine model URL. Features an active webcam feed, sensitivity settings, customizable gesture action mapping, local high-score tracking, and dark mode.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
